@@ -19,11 +19,25 @@ impl  CutConfig {
         CutConfig{ delimiter: "".to_string(), field: vec![], input: None,}
     }
     fn process_field_token(self: &mut Self, string_fields: &str) {
-        self.field =  string_fields.split(",")
+
+        let is_range = if string_fields.contains("-") { true } else { false };
+
+        if is_range {
+             self.field =  string_fields
+                .split("-")
+                .map(|v| v.trim())
+                .filter_map(|v| v.parse::<i32>().ok())
+                .filter(|v| *v != 0)
+                .collect();
+             return ()
+        }
+        self.field = string_fields
+            .split(",")
             .map(|v| v.trim())
             .filter_map(|v| v.parse::<i32>().ok())
             .filter(|v| *v != 0)
             .collect();
+
     }
 }
 
@@ -32,7 +46,11 @@ fn main() {
     let cmd_argument : Vec<String> = env::args().collect();
     let mut  cmd_itr  = cmd_argument.into_iter();
     _ = cmd_itr.next();
-    let _config = parse_commandline_arg(cmd_itr);
+    let _config = parse_commandline_arg(cmd_itr).unwrap();
+
+    // println!("{:?}", cmd_argument);
+    // println!("{:?}", cmd_itr);
+    println!("Delimiter: {:?}, Field: {:?}", _config.delimiter, _config.field);
 
    //TODO: Figure out how to configure flags
     // TODO:  Figure out if we were given a file or reading stdin
