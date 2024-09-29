@@ -1,5 +1,5 @@
 use std::vec::IntoIter;
-use std::{env, io};
+use std::{env, fs, io};
 
 struct CutConfig {
     //  -d delim Use delim as the field delimiter character instead of the tab character.
@@ -10,7 +10,9 @@ struct CutConfig {
     fields: Vec<u64>,
     //  If no file arguments are specified, or a file
     // argument is a single dash (‘-’), cut reads from the standard input.
-    input: Option<Box<dyn io::Read>>,
+    input_file: Option<Box<fs::File>>,
+
+    stdin: Option<Box<io::Stdin>>,
 
     // Use whitespace (spaces and tabs) as the
     // delimiter.  Consecutive spaces and tabs count as
@@ -40,7 +42,8 @@ impl CutConfig {
         CutConfig {
             delimiter: "".to_string(),
             fields: vec![],
-            input: None,
+            input_file: None,
+            stdin: None,
             whitespace: false,
             suppress: false,
             byte_pos: vec![],
@@ -56,9 +59,7 @@ impl CutConfig {
     fn process_field_token(self: &mut Self, string_fields: &str) {
         let is_range = string_fields.contains("-");
         if is_range {
-            let val: Vec<&str> = string_fields
-                .split(",")
-                .collect();
+            let val: Vec<&str> = string_fields.split(",").collect();
             let mut v = Vec::<u64>::new();
             self.handle_range_fields(val, &mut v);
             return;
@@ -96,20 +97,29 @@ fn main() {
     let cmd_argument: Vec<String> = env::args().collect();
     let mut cmd_itr = cmd_argument.into_iter();
     _ = cmd_itr.next();
-    let _config = parse_commandline_arg(cmd_itr).unwrap();
 
-    println!("_config.fields : {:?}", _config.fields);
-    println!("_config.delimiter : {:?}", _config.delimiter);
-    println!("_config.byte_pos : {:?}", _config.byte_pos);
-    println!("_config.whitespace : {:?}", _config.whitespace);
-    println!("_config.char_pos : {:?}", _config.char_pos);
-    println!("_config.no_split : {:?}", _config.no_split);
+    let config = parse_commandline_arg(cmd_itr).unwrap();
+
+    if config.input_file.is_some() {
+        println!("_config.file : {:?}", config.input_file.unwrap());
+        return;
+    }
+
+    if config.stdin.is_some() {
+        return;
+    }
+
+    println!("_config.fields : {:?}", config.fields);
+    println!("_config.delimiter : {:?}", config.delimiter);
+    println!("_config.byte_pos : {:?}", config.byte_pos);
+    println!("_config.whitespace : {:?}", config.whitespace);
+    println!("_config.char_pos : {:?}", config.char_pos);
+    println!("_config.no_split : {:?}", config.no_split);
 
     // TODO  Handle how we can get file content from stdin before applying
     // logic to the  content
 
     //TODO: Figure out how to configure flags
-
 }
 
 fn parse_commandline_arg(mut itr: IntoIter<String>) -> Result<CutConfig, String> {
@@ -125,10 +135,10 @@ fn parse_commandline_arg(mut itr: IntoIter<String>) -> Result<CutConfig, String>
             if let Err(err) = file {
                 return Err(err.to_string());
             }
-            config.input = Some(Box::new(file.unwrap()));
+            config.input_file = Some(Box::new(file.unwrap()));
         } else {
             match prefix_flag {
-                "-" => config.input = Some(Box::new(io::stdin())),
+                "-" => config.stdin = Some(Box::new(io::stdin())),
                 "-f" => {
                     let string_fields = str_token.strip_prefix("-f").unwrap();
                     config.process_field_token(string_fields);
@@ -157,12 +167,7 @@ fn parse_commandline_arg(mut itr: IntoIter<String>) -> Result<CutConfig, String>
                         .filter_map(|v| v.parse::<u64>().ok())
                         .collect();
                 }
-                filename => {
-                    // check if the file name is blank
-                    // try to access the file if it exists
-                    //  not exist - error
-                    // else set the input configs
-                }
+                _ => (),
             }
         }
     }
