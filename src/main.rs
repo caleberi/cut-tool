@@ -1,3 +1,4 @@
+use std::io::{BufRead, BufReader};
 use std::vec::IntoIter;
 use std::{env, fs, io};
 
@@ -90,6 +91,8 @@ impl CutConfig {
         v.sort();
         self.fields = v.clone();
     }
+
+    fn process(self: &Self, line: &String, output: &mut Vec<String>) {}
 }
 
 fn main() {
@@ -99,9 +102,25 @@ fn main() {
     _ = cmd_itr.next();
 
     let config = parse_commandline_arg(cmd_itr).unwrap();
-
+    let mut output: Vec<String> = Vec::new();
     if config.input_file.is_some() {
-        println!("_config.file : {:?}", config.input_file.unwrap());
+        let file = &config.input_file.as_ref().unwrap();
+        let mut buf_reader = BufReader::new(file.as_ref());
+        let mut line = String::new();
+        loop {
+            let result = buf_reader.read_line(&mut line);
+            match result {
+                Ok(size) => {
+                    if size == 0 {
+                        break;
+                    }
+                }
+                Err(e) => panic!("{}", e.to_string().as_str()),
+            }
+
+            config.process(&line, &mut output);
+        }
+
         return;
     }
 
