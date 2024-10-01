@@ -162,7 +162,6 @@ impl CutConfig {
 }
 
 fn main() {
-    // TODO:  How to handle argument in rust
     let cmd_argument: Vec<String> = env::args().collect();
     let mut cmd_itr = cmd_argument.into_iter();
     _ = cmd_itr.next();
@@ -203,18 +202,6 @@ fn main() {
     if config.stdin.is_some() {
         return;
     }
-
-    println!("_config.fields : {:?}", config.fields);
-    println!("_config.delimiter : {:?}", config.delimiter);
-    println!("_config.byte_pos : {:?}", config.byte_pos);
-    println!("_config.whitespace : {:?}", config.whitespace);
-    println!("_config.char_pos : {:?}", config.char_pos);
-    println!("_config.no_split : {:?}", config.no_split);
-
-    // TODO  Handle how we can get file content from stdin before applying
-    // logic to the  content
-
-    //TODO: Figure out how to configure flags
 }
 
 fn parse_commandline_arg(mut itr: IntoIter<String>) -> Result<CutConfig, String> {
