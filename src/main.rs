@@ -98,17 +98,18 @@ impl CutConfig {
     }
 
     fn process(self: &Self, line: &String, output: &mut Vec<String>) {
+        println!("{:?}", self.byte_pos);
         if self.byte_pos.len() > 0 {
             self.handle_byte_query(line, output);
             return;
         }
 
-        if self.char_pos.len() > 0 {
-            self.handle_character_query(line, output);
-            return;
-        }
+        // if self.char_pos.len() > 0 {
+        //     self.handle_character_query(line, output);
+        //     return;
+        // }
 
-        self.handle_file_query(line, output);
+        // self.handle_file_query(line, output);
     }
 
     fn handle_byte_query(self: &Self, line: &String, output: &mut Vec<String>) {
@@ -128,12 +129,17 @@ impl CutConfig {
                 }
             }
         }
+        let bytes = line.as_bytes();
         for n in &self.byte_pos {
-            let v = graphemes.get(*n as usize).unwrap();
-            output.push(v.to_string());
+            let v = bytes[*n as usize];
+            // println!("{:?}", bytes);
+            println!("{:?}", char::from(v));
+            println!("{}", v);
+            output.push(String::from(char::from(v)));
         }
     }
 
+    #[allow(dead_code)]
     fn handle_character_query(self: &Self, line: &String, output: &mut Vec<String>) {
         let characters: Chars<'_> = line.chars().into_iter();
         let mut indexes = HashMap::new();
@@ -148,6 +154,7 @@ impl CutConfig {
         }
     }
 
+    #[allow(dead_code)]
     fn handle_file_query(self: &Self, line: &String, _output: &mut Vec<String>) {
         if self.suppress && !line.contains(&self.delimiter) {
             return;
@@ -183,7 +190,7 @@ fn main() {
         let mut buf_reader = BufReader::new(file.as_ref());
         let mut line = String::new();
         loop {
-            println!("{}", line);
+            // println!("{line}");
             let result = buf_reader.read_line(&mut line);
             match result {
                 Ok(size) => {
