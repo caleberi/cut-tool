@@ -183,6 +183,7 @@ fn main() {
         let mut buf_reader = BufReader::new(file.as_ref());
         let mut line = String::new();
         loop {
+            println!("{}", line);
             let result = buf_reader.read_line(&mut line);
             match result {
                 Ok(size) => {
@@ -195,7 +196,9 @@ fn main() {
 
             config.process(&line, &mut output);
         }
-
+        for o in output.into_iter() {
+            println!("{}", o);
+        }
         return;
     }
 
