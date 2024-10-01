@@ -1,6 +1,9 @@
+use std::collections::HashMap;
 use std::io::{BufRead, BufReader};
+use std::str::Chars;
 use std::vec::IntoIter;
 use std::{env, fs, io};
+use unicode_segmentation::UnicodeSegmentation;
 
 struct CutConfig {
     //  -d delim Use delim as the field delimiter character instead of the tab character.
@@ -25,7 +28,7 @@ struct CutConfig {
     suppress: bool,
 
     // The list specifies byte positions.
-    byte_pos: Vec<u8>,
+    byte_pos: Vec<u64>,
 
     // The list specifies character positions.
     char_pos: Vec<u64>,
@@ -36,6 +39,7 @@ struct CutConfig {
     // unselected bytes, the rest of the bytes that form
     // the character are selected.
     no_split: bool,
+    help: bool,
 }
 
 impl CutConfig {
@@ -49,6 +53,7 @@ impl CutConfig {
             suppress: false,
             byte_pos: vec![],
             char_pos: vec![],
+            help: false,
             no_split: false,
         }
     }
@@ -92,7 +97,68 @@ impl CutConfig {
         self.fields = v.clone();
     }
 
-    fn process(self: &Self, line: &String, output: &mut Vec<String>) {}
+    fn process(self: &Self, line: &String, output: &mut Vec<String>) {
+        if self.byte_pos.len() > 0 {
+            self.handle_byte_query(line, output);
+            return;
+        }
+
+        if self.char_pos.len() > 0 {
+            self.handle_character_query(line, output);
+            return;
+        }
+
+        self.handle_file_query(line, output);
+    }
+
+    fn handle_byte_query(self: &Self, line: &String, output: &mut Vec<String>) {
+        let graphemes: Vec<&str> = line.graphemes(true).collect();
+        let mut char_index = 0;
+
+        if self.no_split {
+            for n in &self.byte_pos {
+                for grapheme in graphemes.clone().into_iter() {
+                    let char_end = char_index + grapheme.len();
+
+                    if char_end > (*n as usize) && (*n as usize) < char_end {
+                        output.push(grapheme.to_string());
+                    }
+
+                    char_index = char_end;
+                }
+            }
+        }
+        for n in &self.byte_pos {
+            let v = graphemes.get(*n as usize).unwrap();
+            output.push(v.to_string());
+        }
+    }
+
+    fn handle_character_query(self: &Self, line: &String, output: &mut Vec<String>) {
+        let characters: Chars<'_> = line.chars().into_iter();
+        let mut indexes = HashMap::new();
+        for (idx, character) in characters.enumerate() {
+            _ = indexes.insert(idx, character).unwrap();
+        }
+        for c in self.char_pos.iter() {
+            let key = *c as usize;
+            if let Some(v) = indexes.get(&key) {
+                output.push(v.to_string());
+            }
+        }
+    }
+
+    fn handle_file_query(self: &Self, line: &String, _output: &mut Vec<String>) {
+        if self.suppress && !line.contains(&self.delimiter) {
+            return;
+        }
+        let mut dem_tab_or_space = false;
+        if self.whitespace && self.delimiter == "" {
+            dem_tab_or_space = true;
+        }
+
+        _ = dem_tab_or_space;
+    }
 }
 
 fn main() {
@@ -103,6 +169,16 @@ fn main() {
 
     let config = parse_commandline_arg(cmd_itr).unwrap();
     let mut output: Vec<String> = Vec::new();
+    if config.help {
+        let msg = " 
+        SYNOPSIS
+             cut -b list [-n] [file ...]
+             cut -c list [file ...]
+             cut -f list [-w | -d delim] [-s] [file ...]
+        ";
+        println!("{msg}");
+        return;
+    }
     if config.input_file.is_some() {
         let file = &config.input_file.as_ref().unwrap();
         let mut buf_reader = BufReader::new(file.as_ref());
@@ -157,6 +233,7 @@ fn parse_commandline_arg(mut itr: IntoIter<String>) -> Result<CutConfig, String>
             config.input_file = Some(Box::new(file.unwrap()));
         } else {
             match prefix_flag {
+                "-h" => config.help = true,
                 "-" => config.stdin = Some(Box::new(io::stdin())),
                 "-f" => {
                     let string_fields = str_token.strip_prefix("-f").unwrap();
@@ -174,7 +251,7 @@ fn parse_commandline_arg(mut itr: IntoIter<String>) -> Result<CutConfig, String>
                     config.byte_pos = string_fields
                         .split(",")
                         .filter(|x| CutConfig::is_digit(*x))
-                        .filter_map(|v| v.parse::<u8>().ok())
+                        .filter_map(|v| v.parse::<u64>().ok())
                         .collect();
                 }
                 "-c" => {
