@@ -45,7 +45,7 @@ struct CutConfig {
 impl CutConfig {
     fn new() -> CutConfig {
         CutConfig {
-            delimiter: "".to_string(),
+            delimiter: " ".to_string(),
             fields: vec![],
             input_file: None,
             stdin: None,
@@ -120,7 +120,7 @@ impl CutConfig {
                 for grapheme in graphemes.clone().into_iter() {
                     let char_end = char_index + grapheme.len();
 
-                    if char_end > (*n as usize) && (*n as usize) < char_end {
+                    if char_end > (*n as usize) && (*n as usize) < char_index {
                         output.push(grapheme.to_string());
                     }
 
@@ -148,13 +148,24 @@ impl CutConfig {
         }
     }
 
-    fn handle_file_query(self: &Self, line: &String, _output: &mut Vec<String>) {
+    fn handle_file_query(self: &Self, line: &String, output: &mut Vec<String>) {
         if self.suppress && !line.contains(&self.delimiter) {
             return;
         }
         let mut dem_tab_or_space = false;
-        if self.whitespace && self.delimiter == "" {
+        if self.whitespace && self.delimiter == " " {
             dem_tab_or_space = true;
+
+            let tokens: Vec<&str> = line.split("    ").collect();
+            for val in &self.fields {
+                if *val as usize <= tokens.len() {
+                    let token = tokens[*val as usize];
+                    output.push(token.parse().unwrap());
+                } else {
+                    panic!("Field index not in line: {}", line);
+                }
+
+            }
         }
 
         _ = dem_tab_or_space;
