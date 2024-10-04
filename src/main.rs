@@ -153,19 +153,24 @@ impl CutConfig {
             return;
         }
         let mut dem_tab_or_space = false;
-        if self.whitespace && self.delimiter == " " {
+        if !self.whitespace && self.delimiter == " " {
             dem_tab_or_space = true;
 
-            let tokens: Vec<&str> = line.split("    ").collect();
+            let tokens: Vec<&str> = line.split("\t").collect();
+
+            let mut values: Vec<&str> = vec![];
             for val in &self.fields {
-                if *val as usize <= tokens.len() {
-                    let token = tokens[*val as usize];
-                    output.push(token.parse().unwrap());
+                let value = *val - 1;
+
+                if value < tokens.len() as u64 {
+                    let token = tokens[value as usize];
+                    values.push(token);
                 } else {
-                    panic!("Field index not in line: {}", line);
+                    values.push(" ");
                 }
 
             }
+            output.push(values.join("\t"));
         }
 
         _ = dem_tab_or_space;
@@ -191,22 +196,16 @@ fn main() {
     }
     if config.input_file.is_some() {
         let file = &config.input_file.as_ref().unwrap();
-        let mut buf_reader = BufReader::new(file.as_ref());
-        let mut line = String::new();
-        loop {
-            println!("{}", line);
-            let result = buf_reader.read_line(&mut line);
-            match result {
-                Ok(size) => {
-                    if size == 0 {
-                        break;
-                    }
-                }
-                Err(e) => panic!("{}", e.to_string().as_str()),
-            }
+        let buf_reader = BufReader::new(file.as_ref());
 
-            config.process(&line, &mut output);
+        for line in buf_reader.lines() {
+                // match &line {
+                //     Ok(size) => { if size == 0 {break;} }
+                //     Err(e) => panic!("{}", e.to_string().as_str()),
+                // }
+            config.process(&line.unwrap(), &mut output);
         }
+
         for o in output.into_iter() {
             println!("{}", o);
         }
