@@ -45,7 +45,7 @@ struct CutConfig {
 impl CutConfig {
     fn new() -> CutConfig {
         CutConfig {
-            delimiter: "".to_string(),
+            delimiter: " ".to_string(),
             fields: vec![],
             input_file: None,
             stdin: None,
@@ -120,7 +120,7 @@ impl CutConfig {
                 for grapheme in graphemes.clone().into_iter() {
                     let char_end = char_index + grapheme.len();
 
-                    if char_end > (*n as usize) && (*n as usize) < char_end {
+                    if char_end > (*n as usize) && (*n as usize) < char_index {
                         output.push(grapheme.to_string());
                     }
 
@@ -148,13 +148,29 @@ impl CutConfig {
         }
     }
 
-    fn handle_file_query(self: &Self, line: &String, _output: &mut Vec<String>) {
+    fn handle_file_query(self: &Self, line: &String, output: &mut Vec<String>) {
         if self.suppress && !line.contains(&self.delimiter) {
             return;
         }
         let mut dem_tab_or_space = false;
-        if self.whitespace && self.delimiter == "" {
+        if !self.whitespace && self.delimiter == " " {
             dem_tab_or_space = true;
+
+            let tokens: Vec<&str> = line.split("\t").collect();
+
+            let mut values: Vec<&str> = vec![];
+            for val in &self.fields {
+                let value = *val - 1;
+
+                if value < tokens.len() as u64 {
+                    let token = tokens[value as usize];
+                    values.push(token);
+                } else {
+                    values.push(" ");
+                }
+
+            }
+            output.push(values.join("\t"));
         }
 
         _ = dem_tab_or_space;
@@ -180,22 +196,16 @@ fn main() {
     }
     if config.input_file.is_some() {
         let file = &config.input_file.as_ref().unwrap();
-        let mut buf_reader = BufReader::new(file.as_ref());
-        let mut line = String::new();
-        loop {
-            println!("{}", line);
-            let result = buf_reader.read_line(&mut line);
-            match result {
-                Ok(size) => {
-                    if size == 0 {
-                        break;
-                    }
-                }
-                Err(e) => panic!("{}", e.to_string().as_str()),
-            }
+        let buf_reader = BufReader::new(file.as_ref());
 
-            config.process(&line, &mut output);
+        for line in buf_reader.lines() {
+                // match &line {
+                //     Ok(size) => { if size == 0 {break;} }
+                //     Err(e) => panic!("{}", e.to_string().as_str()),
+                // }
+            config.process(&line.unwrap(), &mut output);
         }
+
         for o in output.into_iter() {
             println!("{}", o);
         }
