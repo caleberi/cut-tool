@@ -45,7 +45,7 @@ struct CutConfig {
 impl CutConfig {
     fn new() -> CutConfig {
         CutConfig {
-            delimiter: " ".to_string(),
+            delimiter: String::from("\t"),
             fields: vec![],
             input_file: None,
             stdin: None,
@@ -63,14 +63,22 @@ impl CutConfig {
     }
 
     fn process_field_token(self: &mut Self, string_fields: &str) {
-        let is_range = string_fields.contains("-");
+        let mut t_string_fields = String::from(string_fields);
+        let has_space = string_fields.contains(" ");
+        if has_space {
+            t_string_fields = t_string_fields.replace(" ", ",");
+        }
+        let is_range = t_string_fields.contains("-");
         if is_range {
-            let val: Vec<&str> = string_fields.split(",").collect();
+            let val: Vec<&str> = t_string_fields
+                .split(",")
+                .filter(|v| v.len() == 0)
+                .collect();
             let mut v = Vec::<u64>::new();
             self.handle_range_fields(val, &mut v);
             return;
         }
-        self.fields = string_fields
+        self.fields = t_string_fields
             .split(",")
             .map(|v| v.trim())
             .filter_map(|v| v.parse::<u64>().ok())
@@ -98,73 +106,83 @@ impl CutConfig {
     }
 
     fn process(self: &Self, line: &String, output: &mut Vec<String>) {
-        println!("{:?}", self.byte_pos);
         if self.byte_pos.len() > 0 {
             self.handle_byte_query(line, output);
             return;
         }
 
-        // if self.char_pos.len() > 0 {
-        //     self.handle_character_query(line, output);
-        //     return;
-        // }
+        if self.char_pos.len() > 0 {
+            self.handle_character_query(line, output);
+            return;
+        }
 
-        // self.handle_file_query(line, output);
+        self.handle_file_query(line, output);
     }
 
     fn handle_byte_query(self: &Self, line: &String, output: &mut Vec<String>) {
         let graphemes: Vec<&str> = line.graphemes(true).collect();
         let mut char_index = 0;
 
+        let mut byte_positions = Vec::new();
         if self.no_split {
-            for n in &self.byte_pos {
-                for grapheme in graphemes.clone().into_iter() {
-                    let char_end = char_index + grapheme.len();
-
-                    if char_end > (*n as usize) && (*n as usize) < char_end {
-                        output.push(grapheme.to_string());
+            for grapheme in graphemes.iter() {
+                let char_end = char_index + grapheme.len();
+                for n in &self.byte_pos {
+                    let n = *n as usize;
+                    if char_index <= n && n < char_end {
+                        byte_positions.push(grapheme.to_string());
                     }
-
-                    char_index = char_end;
                 }
+
+                char_index = char_end;
             }
+            output.push(byte_positions.join(" "));
+            return;
         }
+
         let bytes = line.as_bytes();
         for n in &self.byte_pos {
             let v = bytes[*n as usize];
-            // println!("{:?}", bytes);
-            println!("{:?}", char::from(v));
-            println!("{}", v);
-            output.push(String::from(char::from(v)));
+            byte_positions.push(String::from(char::from(v)));
         }
+        output.push(byte_positions.join(" "));
     }
 
-    #[allow(dead_code)]
     fn handle_character_query(self: &Self, line: &String, output: &mut Vec<String>) {
         let characters: Chars<'_> = line.chars().into_iter();
         let mut indexes = HashMap::new();
         for (idx, character) in characters.enumerate() {
-            _ = indexes.insert(idx, character).unwrap();
+            _ = indexes.insert(idx, character);
         }
+        let mut values: Vec<String> = vec![];
         for c in self.char_pos.iter() {
             let key = *c as usize;
             if let Some(v) = indexes.get(&key) {
-                output.push(v.to_string());
+                values.push(v.to_string());
             }
         }
+        output.push(values.join("\t"));
     }
 
-    #[allow(dead_code)]
-    fn handle_file_query(self: &Self, line: &String, _output: &mut Vec<String>) {
+    fn handle_file_query(self: &Self, line: &String, output: &mut Vec<String>) {
         if self.suppress && !line.contains(&self.delimiter) {
             return;
         }
-        let mut dem_tab_or_space = false;
-        if self.whitespace && self.delimiter == "" {
-            dem_tab_or_space = true;
-        }
 
-        _ = dem_tab_or_space;
+        let tokens: Vec<&str> = line.split(&self.delimiter).collect();
+
+        let mut values: Vec<&str> = vec![];
+        for val in &self.fields {
+            let value = *val - 1;
+
+            if value < tokens.len() as u64 {
+                let token = tokens[value as usize];
+                values.push(token);
+            } else {
+                values.push(" ");
+            }
+        }
+        output.push(values.join("\t"));
     }
 }
 
@@ -187,31 +205,29 @@ fn main() {
     }
     if config.input_file.is_some() {
         let file = &config.input_file.as_ref().unwrap();
-        let mut buf_reader = BufReader::new(file.as_ref());
-        let mut line = String::new();
-        loop {
-            // println!("{line}");
-            let result = buf_reader.read_line(&mut line);
-            match result {
-                Ok(size) => {
-                    if size == 0 {
-                        break;
-                    }
-                }
-                Err(e) => panic!("{}", e.to_string().as_str()),
-            }
+        let buf_reader = BufReader::new(file.as_ref());
 
+        for line in buf_reader.lines() {
+            config.process(&line.unwrap(), &mut output);
+        }
+    } else if config.stdin.is_some() {
+        loop {
+            let stdin = &config.stdin.as_ref().unwrap();
+            let mut buf_reader: BufReader<_> = BufReader::new(stdin.as_ref());
+            let mut line = String::new();
+            let written = buf_reader.read_line(&mut line).unwrap_or(0);
+            if written == 0 {
+                break;
+            }
             config.process(&line, &mut output);
         }
-        for o in output.into_iter() {
-            println!("{}", o);
-        }
         return;
     }
 
-    if config.stdin.is_some() {
-        return;
+    for o in output.into_iter() {
+        println!("{}", o);
     }
+    return;
 }
 
 fn parse_commandline_arg(mut itr: IntoIter<String>) -> Result<CutConfig, String> {
@@ -237,8 +253,12 @@ fn parse_commandline_arg(mut itr: IntoIter<String>) -> Result<CutConfig, String>
                     config.process_field_token(string_fields);
                 }
                 "-d" => {
-                    let delimiter = str_token.strip_prefix("-d").unwrap_or("").to_string();
-                    config.delimiter = delimiter;
+                    let delimiter = str_token.strip_prefix("-d").unwrap_or("\t").to_string();
+                    if config.whitespace && config.delimiter.as_str() != "\t" {
+                        config.delimiter = String::from("\t");
+                    } else {
+                        config.delimiter = delimiter;
+                    }
                 }
                 "-n" => config.no_split = true,
                 "-w" => config.whitespace = true,
