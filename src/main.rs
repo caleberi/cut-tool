@@ -45,7 +45,7 @@ struct CutConfig {
 impl CutConfig {
     fn new() -> CutConfig {
         CutConfig {
-            delimiter: "".to_string(),
+            delimiter: " ".to_string(),
             fields: vec![],
             input_file: None,
             stdin: None,
