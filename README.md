@@ -68,13 +68,6 @@ cargo build --release
 
 The executable will be available in the `target/release` directory.
 
-## Dependencies
-
-This tool uses the following external crates:
-- `unicode-segmentation`: For handling Unicode graphemes
-
-Make sure to include these dependencies in your `Cargo.toml` file.
-
 ## Notes
 
 - The tool aims to be compatible with the Unix `cut` command, but there might be some differences in behavior.
