@@ -203,17 +203,17 @@ fn main() {
         println!("{msg}");
         return;
     }
-    if config.input_file.is_some() {
-        let file = &config.input_file.as_ref().unwrap();
-        let buf_reader = BufReader::new(*file);
 
+    if let Some(file) = &config.input_file {
+        let buf_reader = BufReader::new(file);
         for line in buf_reader.lines() {
             config.process(&line.unwrap(), &mut output);
         }
-    } else if config.stdin.is_some() {
+    };
+
+    if let Some(stdin) = &config.stdin {
         loop {
-            let stdin = &config.stdin.as_ref().unwrap();
-            let mut buf_reader: BufReader<_> = BufReader::new(*stdin);
+            let mut buf_reader: BufReader<_> = BufReader::new(stdin);
             let mut line = String::new();
             let written = buf_reader.read_line(&mut line).unwrap_or(0);
             if written == 0 {
