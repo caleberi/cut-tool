@@ -14,9 +14,9 @@ struct CutConfig {
     fields: Vec<u64>,
     //  If no file arguments are specified, or a file
     // argument is a single dash (‘-’), cut reads from the standard input.
-    input_file: Option<Box<fs::File>>,
+    input_file: Option<fs::File>,
 
-    stdin: Option<Box<io::Stdin>>,
+    stdin: Option<io::Stdin>,
 
     // Use whitespace (spaces and tabs) as the
     // delimiter.  Consecutive spaces and tabs count as
@@ -205,7 +205,7 @@ fn main() {
     }
     if config.input_file.is_some() {
         let file = &config.input_file.as_ref().unwrap();
-        let buf_reader = BufReader::new(file.as_ref());
+        let buf_reader = BufReader::new(*file);
 
         for line in buf_reader.lines() {
             config.process(&line.unwrap(), &mut output);
@@ -213,7 +213,7 @@ fn main() {
     } else if config.stdin.is_some() {
         loop {
             let stdin = &config.stdin.as_ref().unwrap();
-            let mut buf_reader: BufReader<_> = BufReader::new(stdin.as_ref());
+            let mut buf_reader: BufReader<_> = BufReader::new(*stdin);
             let mut line = String::new();
             let written = buf_reader.read_line(&mut line).unwrap_or(0);
             if written == 0 {
@@ -243,11 +243,11 @@ fn parse_commandline_arg(mut itr: IntoIter<String>) -> Result<CutConfig, String>
             if let Err(err) = file {
                 return Err(err.to_string());
             }
-            config.input_file = Some(Box::new(file.unwrap()));
+            config.input_file = Some(file.unwrap());
         } else {
             match prefix_flag {
                 "-h" => config.help = true,
-                "-" => config.stdin = Some(Box::new(io::stdin())),
+                "-" => config.stdin = Some(io::stdin()),
                 "-f" => {
                     let string_fields = str_token.strip_prefix("-f").unwrap();
                     config.process_field_token(string_fields);
