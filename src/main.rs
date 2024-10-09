@@ -58,11 +58,11 @@ impl CutConfig {
         }
     }
 
-    fn is_digit(s: &str) -> bool {
+    pub fn is_digit(s: &str) -> bool {
         s.parse::<i32>().is_ok() && !s.parse::<f32>().is_err() // rejecting float
     }
 
-    fn process_field_token(self: &mut Self, string_fields: &str) {
+    pub fn process_field_token(self: &mut Self, string_fields: &str) {
         let mut t_string_fields = String::from(string_fields);
         let has_space = string_fields.contains(" ");
         if has_space {
@@ -86,7 +86,7 @@ impl CutConfig {
             .collect();
     }
 
-    fn handle_range_fields(self: &mut Self, val: Vec<&str>, v: &mut Vec<u64>) {
+    pub fn handle_range_fields(self: &mut Self, val: Vec<&str>, v: &mut Vec<u64>) {
         for n in 0..val.len() {
             let is_range = val.get(n).unwrap().contains("-");
             if is_range {
@@ -184,6 +184,64 @@ impl CutConfig {
         }
         output.push(values.join("\t"));
     }
+
+    pub fn parse_commandline_arg(mut itr: IntoIter<String>) -> Result<CutConfig, String> {
+        let mut config = CutConfig::new();
+        while let Some(token) = itr.next() {
+            let str_token = token.as_str();
+            let prefix_flag = str_token
+                .get(0..2)
+                .unwrap_or_else(|| return str_token.get(0..1).unwrap_or(""));
+
+            if !prefix_flag.starts_with("-") {
+                let file = std::fs::File::open(&str_token);
+                if let Err(err) = file {
+                    return Err(err.to_string());
+                }
+                config.input_file = Some(file.unwrap());
+            } else {
+                match prefix_flag {
+                    "-h" => config.help = true,
+                    "-" => config.stdin = Some(io::stdin()),
+                    "-f" => {
+                        let string_fields = str_token.strip_prefix("-f").unwrap();
+                        config.process_field_token(string_fields);
+                    }
+                    "-d" => {
+                        let delimiter = str_token.strip_prefix("-d").unwrap_or("\t").to_string();
+                        if config.whitespace && config.delimiter.as_str() != "\t" {
+                            config.delimiter = String::from("\t");
+                        } else {
+                            config.delimiter = delimiter;
+                        }
+                    }
+                    "-n" => config.no_split = true,
+                    "-w" => config.whitespace = true,
+                    "-s" => config.suppress = true,
+                    "-b" => {
+                        let string_fields = str_token.strip_prefix("-b").unwrap();
+                        config.byte_pos = string_fields
+                            .split(",")
+                            .filter(|x| CutConfig::is_digit(*x))
+                            .filter_map(|v| v.parse::<u64>().ok())
+                            .collect();
+                    }
+                    "-c" => {
+                        config.char_pos = str_token
+                            .strip_prefix("-c")
+                            .unwrap()
+                            .split(",")
+                            .filter(|x| CutConfig::is_digit(*x))
+                            .filter_map(|v| v.parse::<u64>().ok())
+                            .collect();
+                    }
+                    _ => (),
+                }
+            }
+        }
+
+        Ok(config)
+    }
 }
 
 fn main() {
@@ -191,7 +249,7 @@ fn main() {
     let mut cmd_itr = cmd_argument.into_iter();
     _ = cmd_itr.next();
 
-    let config = parse_commandline_arg(cmd_itr).unwrap();
+    let config = CutConfig::parse_commandline_arg(cmd_itr).unwrap();
     let mut output: Vec<String> = Vec::new();
     if config.help {
         let msg = " 
@@ -228,62 +286,4 @@ fn main() {
         println!("{}", o);
     }
     return;
-}
-
-fn parse_commandline_arg(mut itr: IntoIter<String>) -> Result<CutConfig, String> {
-    let mut config = CutConfig::new();
-    while let Some(token) = itr.next() {
-        let str_token = token.as_str();
-        let prefix_flag = str_token
-            .get(0..2)
-            .unwrap_or_else(|| return str_token.get(0..1).unwrap_or(""));
-
-        if !prefix_flag.starts_with("-") {
-            let file = std::fs::File::open(&str_token);
-            if let Err(err) = file {
-                return Err(err.to_string());
-            }
-            config.input_file = Some(file.unwrap());
-        } else {
-            match prefix_flag {
-                "-h" => config.help = true,
-                "-" => config.stdin = Some(io::stdin()),
-                "-f" => {
-                    let string_fields = str_token.strip_prefix("-f").unwrap();
-                    config.process_field_token(string_fields);
-                }
-                "-d" => {
-                    let delimiter = str_token.strip_prefix("-d").unwrap_or("\t").to_string();
-                    if config.whitespace && config.delimiter.as_str() != "\t" {
-                        config.delimiter = String::from("\t");
-                    } else {
-                        config.delimiter = delimiter;
-                    }
-                }
-                "-n" => config.no_split = true,
-                "-w" => config.whitespace = true,
-                "-s" => config.suppress = true,
-                "-b" => {
-                    let string_fields = str_token.strip_prefix("-b").unwrap();
-                    config.byte_pos = string_fields
-                        .split(",")
-                        .filter(|x| CutConfig::is_digit(*x))
-                        .filter_map(|v| v.parse::<u64>().ok())
-                        .collect();
-                }
-                "-c" => {
-                    config.char_pos = str_token
-                        .strip_prefix("-c")
-                        .unwrap()
-                        .split(",")
-                        .filter(|x| CutConfig::is_digit(*x))
-                        .filter_map(|v| v.parse::<u64>().ok())
-                        .collect();
-                }
-                _ => (),
-            }
-        }
-    }
-
-    Ok(config)
 }
