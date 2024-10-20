@@ -85,7 +85,19 @@ pub mod cut_tool {
         }
 
         fn is_digit(s: &str) -> bool {
-            s.parse::<i32>().is_ok() && !s.parse::<f32>().is_err() // rejecting float
+            let f: Vec<&str> = "1234567890.".split("").collect();
+            let hay: Vec<&str> = s.split("").collect();
+            for c in hay {
+                if !&f.contains(&c) {
+                    return false;
+                }
+            }
+            fn wrap(s: &str) -> Result<bool, bool> {
+                let x = s.parse::<i32>().is_ok();
+                let y = s.parse::<f32>().is_ok();
+                Ok(x || y)
+            }
+            return wrap(s).is_ok();
         }
 
         fn process_field_token(self: &mut Self, string_fields: &str) {
@@ -268,5 +280,42 @@ pub mod cut_tool {
         }
 
         Ok(config)
+    }
+
+    #[cfg(test)]
+    mod test {
+        use crate::cut::cut_tool::CutConfig;
+        struct Suit {
+            input: &'static str,
+            expected: bool,
+        }
+        #[test]
+        fn test_is_digit() {
+            let mut tests: Vec<Suit> = Vec::new();
+            tests.push(Suit {
+                input: "34",
+                expected: true,
+            });
+            tests.push(Suit {
+                input: "3.34",
+                expected: true,
+            });
+            tests.push(Suit {
+                input: "14.9",
+                expected: true,
+            });
+            tests.push(Suit {
+                input: "3a4",
+                expected: false,
+            });
+
+            tests.push(Suit {
+                input: "3*4",
+                expected: false,
+            });
+            for test in tests {
+                assert_eq!(CutConfig::is_digit(test.input), test.expected)
+            }
+        }
     }
 }
