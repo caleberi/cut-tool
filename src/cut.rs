@@ -2,7 +2,7 @@ pub mod cut_tool {
     use std::collections::HashMap;
     use std::str::Chars;
     use std::vec::IntoIter;
-    use std::{env, fs, io};
+    use std::{fs, io};
     use unicode_segmentation::UnicodeSegmentation;
 
     pub struct CutConfig {
@@ -43,9 +43,8 @@ pub mod cut_tool {
     }
 
     impl CutConfig {
-        pub fn parse(args: env::Args) -> CutConfig {
-            let cmd_argument: Vec<String> = args.collect();
-            let mut cmd_itr = cmd_argument.into_iter();
+        pub fn parse(args: Vec<String>) -> CutConfig {
+            let mut cmd_itr = args.into_iter();
             _ = cmd_itr.next();
 
             let msg = " 
@@ -284,6 +283,8 @@ pub mod cut_tool {
 
     #[cfg(test)]
     mod test {
+        use std::io::{BufRead, BufReader};
+
         use crate::cut::cut_tool::CutConfig;
         struct Suit {
             input: &'static str,
@@ -316,6 +317,35 @@ pub mod cut_tool {
             for test in tests {
                 assert_eq!(CutConfig::is_digit(test.input), test.expected)
             }
+        }
+
+        #[test]
+        fn test_process() {
+            let arg = String::from("-f1,2,3,4,5  test/sample.tsv");
+            let cmd_argument: Vec<String> = arg.split(" ").map(|x| x.to_string()).collect();
+            let config = CutConfig::parse(cmd_argument);
+            let mut output: Vec<String> = Vec::new();
+            if let Some(file) = &config.input_file {
+                let buf_reader = BufReader::new(file);
+                for line in buf_reader.lines() {
+                    config.process(&line.unwrap(), &mut output);
+                }
+            };
+
+            let result = "
+            f0      f1      f2      f3      f4
+            0       1       2       3       4
+            5       6       7       8       9
+            10      11      12      13      14
+            15      16      17      18      19
+            20      21      22      23      24";
+
+            let mut buffer = String::new();
+            for o in output.into_iter() {
+                buffer.push_str(o.as_str());
+                buffer.push('\n');
+            }
+            assert_eq!(result, buffer)
         }
     }
 }
