@@ -2,7 +2,7 @@ pub mod cut_tool {
     use std::collections::HashMap;
     use std::str::Chars;
     use std::vec::IntoIter;
-    use std::{env, fs, io};
+    use std::{fs, io};
     use unicode_segmentation::UnicodeSegmentation;
 
     pub struct CutConfig {
@@ -43,18 +43,16 @@ pub mod cut_tool {
     }
 
     impl CutConfig {
-        pub fn parse(args: env::Args) -> CutConfig {
-            let cmd_argument: Vec<String> = args.collect();
-            let mut cmd_itr = cmd_argument.into_iter();
+        pub fn parse(args: Vec<String>) -> CutConfig {
+            let mut cmd_itr = args.into_iter();
             _ = cmd_itr.next();
 
             let msg = " 
-                    SYNOPSIS
-                         cut -b list [-n] [file ...]
-                         cut -c list [file ...]
-                         cut -f list [-w | -d delim] [-s] [file ...]
-                    ";
-            // let config = parse_commandline_arg(cmd_itr);
+            SYNOPSIS
+                    cut -b list [-n] [file ...]
+                    cut -c list [file ...]
+                    cut -f list [-w | -d delim] [-s] [file ...]
+            ";
             let config = if let Ok(cfg) = parse_commandline_arg(cmd_itr) {
                 if cfg.help {
                     println!("{msg}");
@@ -85,7 +83,19 @@ pub mod cut_tool {
         }
 
         fn is_digit(s: &str) -> bool {
-            s.parse::<i32>().is_ok() && !s.parse::<f32>().is_err() // rejecting float
+            let f: Vec<&str> = "1234567890.".split("").collect();
+            let hay: Vec<&str> = s.split("").collect();
+            for c in hay {
+                if !&f.contains(&c) {
+                    return false;
+                }
+            }
+            fn wrap(s: &str) -> Result<bool, bool> {
+                let x = s.parse::<i32>().is_ok();
+                let y = s.parse::<f32>().is_ok();
+                Ok(x || y)
+            }
+            return wrap(s).is_ok();
         }
 
         fn process_field_token(self: &mut Self, string_fields: &str) {
@@ -98,7 +108,7 @@ pub mod cut_tool {
             if is_range {
                 let val: Vec<&str> = t_string_fields
                     .split(",")
-                    .filter(|v| v.len() == 0)
+                    .filter(|v| v.len() != 0)
                     .collect();
                 let mut v = Vec::<u64>::new();
                 self.handle_range_fields(val, &mut v);
@@ -268,5 +278,105 @@ pub mod cut_tool {
         }
 
         Ok(config)
+    }
+
+    #[cfg(test)]
+    mod test {
+        use std::io::{BufRead, BufReader};
+
+        use crate::cut::cut_tool::CutConfig;
+        struct Suit {
+            input: &'static str,
+            expected: bool,
+        }
+
+        fn init_config(args: &str) -> CutConfig {
+            let arg = String::from(args);
+            let cmd_argument: Vec<String> = arg
+                .split(" ")
+                .map(|x| x.to_string())
+                .filter(|x| x.len() != 0)
+                .collect();
+            CutConfig::parse(cmd_argument)
+        }
+
+        #[test]
+        fn test_is_digit() {
+            let mut tests: Vec<Suit> = Vec::new();
+            tests.push(Suit {
+                input: "34",
+                expected: true,
+            });
+            tests.push(Suit {
+                input: "3.34",
+                expected: true,
+            });
+            tests.push(Suit {
+                input: "14.9",
+                expected: true,
+            });
+            tests.push(Suit {
+                input: "3a4",
+                expected: false,
+            });
+
+            tests.push(Suit {
+                input: "3*4",
+                expected: false,
+            });
+            for test in tests {
+                assert_eq!(CutConfig::is_digit(test.input), test.expected)
+            }
+        }
+
+        #[test]
+        fn test_process() {
+            let config = init_config("cut-tool -f1,2,3,4,5  test/sample.tsv");
+            let mut output: Vec<String> = Vec::new();
+            if let Some(file) = &config.input_file {
+                let buf_reader = BufReader::new(file);
+                for line in buf_reader.lines() {
+                    let v = &line.unwrap();
+                    config.process(v, &mut output);
+                }
+            };
+            let result =
+             "f0\tf1\tf2\tf3\tf4\n0\t1\t2\t3\t4\n5\t6\t7\t8\t9\n10\t11\t12\t13\t14\n15\t16\t17\t18\t19\n20\t21\t22\t23\t24\n";
+
+            let mut buffer = String::new();
+            for o in output.into_iter() {
+                buffer.push_str(o.as_str());
+                buffer.push('\n');
+            }
+            assert_eq!(result, buffer)
+        }
+
+        #[test]
+        fn test_process_field_token() {
+            let config = init_config("cut-tool -f1,2,3,4,5  test/sample.tsv");
+            let mut expected: Vec<u64> = Vec::new();
+            {
+                expected.push(1);
+                expected.push(2);
+                expected.push(3);
+                expected.push(4);
+                expected.push(5);
+            }
+            assert_eq!(config.fields, expected);
+        }
+
+        #[test]
+        fn test_handle_range_fields() {
+            let config = init_config("cut-tool -f1-4,5  test/sample.tsv");
+            let mut expected: Vec<u64> = Vec::new();
+            {
+                expected.push(1);
+                expected.push(2);
+                expected.push(3);
+                expected.push(4);
+                expected.push(5);
+            }
+            assert_eq!(config.fields, expected);
+        }
     }
 }

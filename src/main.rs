@@ -1,8 +1,12 @@
 mod cut;
-use std::io::{BufRead, BufReader};
+use std::{
+    env,
+    io::{BufRead, BufReader},
+};
 
 fn main() {
-    let config = cut::cut_tool::CutConfig::parse(std::env::args());
+    let cmd_argument: Vec<String> = env::args().collect();
+    let config = cut::cut_tool::CutConfig::parse(cmd_argument);
     let mut output: Vec<String> = Vec::new();
 
     // TODO: Not great to expose this but it is a toy project
