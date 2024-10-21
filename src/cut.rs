@@ -48,12 +48,11 @@ pub mod cut_tool {
             _ = cmd_itr.next();
 
             let msg = " 
-                    SYNOPSIS
-                         cut -b list [-n] [file ...]
-                         cut -c list [file ...]
-                         cut -f list [-w | -d delim] [-s] [file ...]
-                    ";
-            // let config = parse_commandline_arg(cmd_itr);
+            SYNOPSIS
+                    cut -b list [-n] [file ...]
+                    cut -c list [file ...]
+                    cut -f list [-w | -d delim] [-s] [file ...]
+            ";
             let config = if let Ok(cfg) = parse_commandline_arg(cmd_itr) {
                 if cfg.help {
                     println!("{msg}");
@@ -321,24 +320,23 @@ pub mod cut_tool {
 
         #[test]
         fn test_process() {
-            let arg = String::from("-f1,2,3,4,5  test/sample.tsv");
-            let cmd_argument: Vec<String> = arg.split(" ").map(|x| x.to_string()).collect();
+            let arg = String::from("cut-tool -f1,2,3,4,5  test/sample.tsv");
+            let cmd_argument: Vec<String> = arg
+                .split(" ")
+                .map(|x| x.to_string())
+                .filter(|x| x.len() != 0)
+                .collect();
             let config = CutConfig::parse(cmd_argument);
             let mut output: Vec<String> = Vec::new();
             if let Some(file) = &config.input_file {
                 let buf_reader = BufReader::new(file);
                 for line in buf_reader.lines() {
-                    config.process(&line.unwrap(), &mut output);
+                    let v = &line.unwrap();
+                    config.process(v, &mut output);
                 }
             };
-
-            let result = "
-            f0      f1      f2      f3      f4
-            0       1       2       3       4
-            5       6       7       8       9
-            10      11      12      13      14
-            15      16      17      18      19
-            20      21      22      23      24";
+            let result =
+             "f0\tf1\tf2\tf3\tf4\n0\t1\t2\t3\t4\n5\t6\t7\t8\t9\n10\t11\t12\t13\t14\n15\t16\t17\t18\t19\n20\t21\t22\t23\t24\n";
 
             let mut buffer = String::new();
             for o in output.into_iter() {
