@@ -6,7 +6,7 @@ use std::{
 
 fn main() {
     let cmd_argument: Vec<String> = env::args().collect();
-    let config = cut::cut_tool::CutConfig::parse(cmd_argument);
+    let config = cut::CutConfig::parse(cmd_argument);
     let mut output: Vec<String> = Vec::new();
 
     // TODO: Not great to expose this but it is a toy project
