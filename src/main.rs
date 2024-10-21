@@ -17,6 +17,7 @@ fn main() {
         }
     };
 
+    // TODO: FIX THE BUG HERE
     if let Some(stdin) = &config.stdin {
         loop {
             let mut buf_reader: BufReader<_> = BufReader::new(stdin);
