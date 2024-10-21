@@ -108,7 +108,7 @@ pub mod cut_tool {
             if is_range {
                 let val: Vec<&str> = t_string_fields
                     .split(",")
-                    .filter(|v| v.len() == 0)
+                    .filter(|v| v.len() != 0)
                     .collect();
                 let mut v = Vec::<u64>::new();
                 self.handle_range_fields(val, &mut v);
@@ -289,6 +289,17 @@ pub mod cut_tool {
             input: &'static str,
             expected: bool,
         }
+
+        fn init_config(args: &str) -> CutConfig {
+            let arg = String::from(args);
+            let cmd_argument: Vec<String> = arg
+                .split(" ")
+                .map(|x| x.to_string())
+                .filter(|x| x.len() != 0)
+                .collect();
+            CutConfig::parse(cmd_argument)
+        }
+
         #[test]
         fn test_is_digit() {
             let mut tests: Vec<Suit> = Vec::new();
@@ -320,13 +331,7 @@ pub mod cut_tool {
 
         #[test]
         fn test_process() {
-            let arg = String::from("cut-tool -f1,2,3,4,5  test/sample.tsv");
-            let cmd_argument: Vec<String> = arg
-                .split(" ")
-                .map(|x| x.to_string())
-                .filter(|x| x.len() != 0)
-                .collect();
-            let config = CutConfig::parse(cmd_argument);
+            let config = init_config("cut-tool -f1,2,3,4,5  test/sample.tsv");
             let mut output: Vec<String> = Vec::new();
             if let Some(file) = &config.input_file {
                 let buf_reader = BufReader::new(file);
@@ -344,6 +349,34 @@ pub mod cut_tool {
                 buffer.push('\n');
             }
             assert_eq!(result, buffer)
+        }
+
+        #[test]
+        fn test_process_field_token() {
+            let config = init_config("cut-tool -f1,2,3,4,5  test/sample.tsv");
+            let mut expected: Vec<u64> = Vec::new();
+            {
+                expected.push(1);
+                expected.push(2);
+                expected.push(3);
+                expected.push(4);
+                expected.push(5);
+            }
+            assert_eq!(config.fields, expected);
+        }
+
+        #[test]
+        fn test_handle_range_fields() {
+            let config = init_config("cut-tool -f1-4,5  test/sample.tsv");
+            let mut expected: Vec<u64> = Vec::new();
+            {
+                expected.push(1);
+                expected.push(2);
+                expected.push(3);
+                expected.push(4);
+                expected.push(5);
+            }
+            assert_eq!(config.fields, expected);
         }
     }
 }
